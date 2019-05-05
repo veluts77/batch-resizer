@@ -5,16 +5,10 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Simple resize",
+            "name": "Debug Batch",
             "type": "Ruby",
             "request": "launch",
-            "program": "${workspaceRoot}/simple_resize.rb"
-        },
-        {
-            "name": "Hello",
-            "type": "Ruby",
-            "request": "launch",
-            "program": "${workspaceRoot}/hello.rb"
+            "program": "${workspaceRoot}/batch_resize_images.rb"
         }
     ]
 }
