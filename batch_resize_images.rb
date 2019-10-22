@@ -87,6 +87,17 @@ class SavingOptions
     clarify_input
   end
 
+  def create_saver
+    case @option
+    when 1
+      SubfolderSaver.new @suboption
+    when 2
+      PrefixSaver.new @suboption
+    when 3
+      OverrideSaver.new @suboption
+    end
+  end
+
   private
 
   def show_caption
@@ -124,6 +135,43 @@ class SavingOptions
   end
 end
 
+# Performs saving into a subfolder
+class SubfolderSaver
+  def initialize(subfolder_name)
+    @subfolder_name = subfolder_name
+  end
+
+  def save(selection)
+    puts 'saving to subfolder'
+    Dir.open(@subfolder_name) do
+      puts Dir.pwd
+      # selection.each
+    end
+  end
+end
+
+# Performs saving with prefix
+class PrefixSaver
+  def initialize(prefix_name)
+    @prefix_name = prefix_name
+  end
+
+  def save(selection)
+    puts 'saving with prefix'
+  end
+end
+
+# Performs override saving
+class OverrideSaver
+  def initialize(make_copy)
+    @make_copy = make_copy
+  end
+
+  def save(selection)
+    puts 'overwriting'
+  end
+end
+
 selection = ImagesSelection.new
 selection.input
 selection.apply
@@ -131,3 +179,6 @@ selection.show_current
 
 saving_options = SavingOptions.new
 saving_options.input
+
+saver = saving_options.create_saver
+saver.save selection
