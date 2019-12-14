@@ -142,11 +142,28 @@ class SubfolderSaver
   end
 
   def save(selection)
-    puts 'saving to subfolder'
-    Dir.open(@subfolder_name) do
-      puts Dir.pwd
-      # selection.each
+    puts "saving to subfolder '#{@subfolder_name}'"
+    prepare_dir
+    selection.each do |item|
+      resizer = Resizer.new item, "#{@subfolder_name}/#{item}"
+      resizer.resize_and_save
     end
+  end
+
+  private
+
+  def prepare_dir
+    if Dir.exist? @subfolder_name
+      consider_overwriting
+    else
+      Dir.mkdir @subfolder_name
+    end
+  end
+
+  def consider_overwriting
+    msg = "Directory exists! Type 'y' or 'yes' if you want to replace files"
+    yes = gets_str_with_default msg, 'no'
+    abort 'Stopping script.' unless ['yes', 'y'].include? yes
   end
 end
 
@@ -169,6 +186,35 @@ class OverrideSaver
 
   def save(selection)
     puts 'overwriting'
+  end
+end
+
+# Does resizing work
+class Resizer
+  include Magick
+
+  def initialize(source_filename, destination_filename)
+    @source_filename = source_filename
+    @destination_filename = destination_filename
+  end
+
+  def resize_and_save
+    resize
+    save
+  end
+
+  private
+
+  def resize
+    print "#{@source_filename} - resizing... "
+    @image = Magick::Image.read(@source_filename).first
+    @image.resize! 1000, 1000
+    print "done, "
+  end
+
+  def save
+    puts "saving to #{@destination_filename}"
+    @image.write(@destination_filename)
   end
 end
 
