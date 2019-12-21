@@ -141,12 +141,16 @@ class SubfolderSaver
     @subfolder_name = subfolder_name
   end
 
+  def use_resizing_strategy(strategy)
+    @resizing_strategy = strategy
+  end
+
   def save(selection)
     puts "saving to subfolder '#{@subfolder_name}'"
     prepare_dir
     selection.each do |item|
-      resizer = Resizer.new item, "#{@subfolder_name}/#{item}"
-      resizer.resize_and_save
+      processor = Processor.new item, "#{@subfolder_name}/#{item}"
+      processor.resize_and_save @resizing_strategy
     end
   end
 
@@ -163,7 +167,7 @@ class SubfolderSaver
   def consider_overwriting
     msg = "Directory exists! Type 'y' or 'yes' if you want to replace files"
     yes = gets_str_with_default msg, 'no'
-    abort 'Stopping script.' unless ['yes', 'y'].include? yes
+    abort 'Stopping script.' unless %w[yes y].include? yes
   end
 end
 
@@ -189,32 +193,124 @@ class OverrideSaver
   end
 end
 
-# Does resizing work
-class Resizer
+# Queries for resizing parameters generates resizing strategy
+class ResizingOptions
+  def choose_strategy
+    show_caption
+    loop do
+      msg = 'Please choose the option'
+      @option = gets_int_with_default msg, 1
+      break if [1, 2, 3].include? @option
+
+      puts 'Acceptable options are only 1, 2 or 3'
+    end
+    input_threshold_size
+  end
+
+  def create_strategy
+    case @option
+    when 1
+      ResizingStrategy::Smart.new @threshold_size
+    when 2
+      ResizingStrategy::NaiveSmallerSide.new @threshold_size
+    when 3
+      ResizingStrategy::NaiveBiggerSide.new @threshold_size
+    end
+  end
+
+  private
+
+  def show_caption
+    puts
+    puts 'Select the way images are resized:'
+    puts '  1 - smart resize based on smaller side'
+    puts '  2 - naive smaller side size'
+    puts '  3 - naive bigger side size'
+  end
+
+  def input_threshold_size
+    puts 'Target dimension depends on algorithm chosen.'
+    msg = 'Target dimension should be (in pixels) '
+    @threshold_size = gets_int_with_default msg, 2000
+  end
+end
+
+# Provides algorithms that do resize
+class ResizingStrategy
   include Magick
 
+  # Base class for concrete strategies
+  class Base
+    def initialize(size)
+      @size = size
+    end
+
+    def resize(source_filename)
+      image = Magick::Image.read(source_filename).first
+      scale_factor = calculate_scale_factor image
+      image.resize! scale_factor
+      image
+    end
+  end
+
+  # Takes aspect ration into account when resizing.
+  # Smaller sid is expected to be close to 'size' but
+  # could be longer (when aspect ratio is more square)
+  # or shorter (when aspect ratio is less square)
+  class Smart < ResizingStrategy::Base
+    def initialize(size)
+      @size = size
+    end
+  end
+
+  # Smaller side will be set specified size regardless of
+  # aspect ratio of image
+  class NaiveSmallerSide < ResizingStrategy::Base
+    private
+
+    def calculate_scale_factor(image)
+      min_dimension = [image.columns, image.rows].min
+      scale_factor = @size.to_f / min_dimension
+      scale_factor
+    end
+  end
+
+  # Bigger side will be set specified size regardless of
+  # aspect ratio of image
+  class NaiveBiggerSide < ResizingStrategy::Base
+    private
+
+    def calculate_scale_factor(image)
+      max_dimension = [image.columns, image.rows].max
+      scale_factor = @size.to_f / max_dimension
+      scale_factor
+    end
+  end
+end
+
+# Does resizing and saving work
+class Processor
   def initialize(source_filename, destination_filename)
     @source_filename = source_filename
     @destination_filename = destination_filename
   end
 
-  def resize_and_save
-    resize
+  def resize_and_save(strategy)
+    resize_with strategy
     save
   end
 
   private
 
-  def resize
+  def resize_with(strategy)
     print "#{@source_filename} - resizing... "
-    @image = Magick::Image.read(@source_filename).first
-    @image.resize! 1000, 1000
-    print "done, "
+    @image = strategy.resize @source_filename
+    print 'done, '
   end
 
   def save
     puts "saving to #{@destination_filename}"
-    @image.write(@destination_filename)
+    @image.write @destination_filename
   end
 end
 
@@ -226,5 +322,9 @@ selection.show_current
 saving_options = SavingOptions.new
 saving_options.input
 
+resizing_options = ResizingOptions.new
+resizing_options.choose_strategy
+
 saver = saving_options.create_saver
+saver.use_resizing_strategy resizing_options.create_strategy
 saver.save selection
