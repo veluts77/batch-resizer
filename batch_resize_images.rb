@@ -224,8 +224,8 @@ class ResizingOptions
     puts
     puts 'Select the way images are resized:'
     puts '  1 - smart resize based on smaller side'
-    puts '  2 - naive smaller side size'
-    puts '  3 - naive bigger side size'
+    puts '  2 - naive smaller side size (bigger image)'
+    puts '  3 - naive bigger side size (smaller image)'
   end
 
   def input_threshold_size
@@ -258,8 +258,26 @@ class ResizingStrategy
   # could be longer (when aspect ratio is more square)
   # or shorter (when aspect ratio is less square)
   class Smart < ResizingStrategy::Base
-    def initialize(size)
-      @size = size
+    private
+
+    def calculate_scale_factor(image)
+      dimensions = [image.columns, image.rows]
+      min_dimension = dimensions.min
+      aspect_ratio = dimensions.max.to_f / min_dimension
+      k = smart_coefficient(aspect_ratio)
+      scale_factor = k * @size / min_dimension
+      scale_factor
+    end
+
+    def smart_coefficient(aspect_ratio)
+      case aspect_ratio
+      when ->(ar) { ar < 1.1 } # ~ 1:1
+        1.1
+      when ->(ar) { ar > 1.59 } # ~ 16:10-16:9
+        0.9
+      else # ~ 4:3-3:2
+        1.0
+      end
     end
   end
 
